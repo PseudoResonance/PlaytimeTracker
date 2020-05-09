@@ -1,0 +1,16 @@
+[
+{
+  "modid": "playtimetracker",
+  "name": "PlaytimeTracker",
+  "description": "Tracks game playtime.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["PseudoResonance"],
+  "credits": "PseudoResonance",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
