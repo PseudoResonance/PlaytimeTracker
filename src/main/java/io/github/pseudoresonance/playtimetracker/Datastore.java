@@ -1,8 +1,6 @@
 package io.github.pseudoresonance.playtimetracker;
 
-import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
@@ -10,8 +8,6 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.Charset;
-import java.util.HashMap;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -20,13 +16,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.simpleyaml.configuration.ConfigurationSection;
-import org.simpleyaml.configuration.file.YamlFile;
-import org.simpleyaml.exceptions.InvalidConfigurationException;
-
+import org.simpleyaml.configuration.file.FileConfiguration;
 import com.google.common.base.Charsets;
-
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.common.config.Property;
 
 public class Datastore {
 
@@ -49,14 +40,15 @@ public class Datastore {
 	private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 	private volatile ScheduledFuture<?> scheduledTask = null;
 
+	@SuppressWarnings("deprecation")
 	Datastore(PlaytimeTracker playtimeTracker) {
 		this.playtimeTracker = playtimeTracker;
 		try {
-			dataFolder = new File(playtimeTracker.getConfig().database);
+			dataFolder = new File(ConfigHandler.database);
 			dataFolder.mkdirs();
 		} catch (SecurityException e) {
 			try {
-				playtimeTracker.getConfig().setDatabase("./playtime");
+				ConfigHandler.setDatabase("./playtime");
 				dataFolder = new File("./playtime");
 				dataFolder.mkdirs();
 			} catch (SecurityException ex) {
@@ -67,7 +59,7 @@ public class Datastore {
 		FileLock lock = null;
 		try (FileChannel channel = new RandomAccessFile(dataFile.getConfigFile(), "rw").getChannel();) {
 			lock = channel.lock();
-			dataFile.reload(new InputStreamReader(Channels.newInputStream(channel), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
+			dataFile.reload(new InputStreamReader(Channels.newInputStream(channel), FileConfiguration.UTF8_OVERRIDE && !FileConfiguration.UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
 			readConfig(false, null);
 		} catch (Exception e) {
 			playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
@@ -81,6 +73,7 @@ public class Datastore {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
 	public void updateLocation(String location) {
 		try {
 			File newFolder = new File(location);
@@ -92,7 +85,7 @@ public class Datastore {
 				FileLock lock = null;
 				try (FileChannel channel = new RandomAccessFile(dataFile.getConfigFile(), "rw").getChannel();) {
 					lock = channel.lock();
-					dataFile.reload(new InputStreamReader(Channels.newInputStream(channel), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
+					dataFile.reload(new InputStreamReader(Channels.newInputStream(channel), FileConfiguration.UTF8_OVERRIDE && !FileConfiguration.UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
 					readConfig(false, null);
 				} catch (Exception e) {
 					playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
@@ -149,12 +142,26 @@ public class Datastore {
 		totalTime = newTotalTime;
 	}
 
+	@SuppressWarnings("deprecation")
 	private void updateData() {
 		FileLock lock = null;
 		try (RandomAccessFile raf = new RandomAccessFile(dataFile.getConfigFile(), "rw")) {
 			lock = raf.getChannel().lock();
-			if (playtimeTracker.getConfig().multiInstance)
-				readConfig(true, new InputStreamReader(Channels.newInputStream(raf.getChannel()), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
+			if (ConfigHandler.multiInstance) {
+				readConfig(true, new InputStreamReader(Channels.newInputStream(raf.getChannel()), FileConfiguration.UTF8_OVERRIDE && !FileConfiguration.UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
+			}
+		} catch (Exception e) {
+			playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
+			e.printStackTrace();
+		} finally {
+			try {
+				if (lock != null)
+					lock.release();
+			} catch (IOException e) {
+			}
+		}
+		try (RandomAccessFile raf = new RandomAccessFile(dataFile.getConfigFile(), "rw")) {
+			lock = raf.getChannel().lock();
 			if (loggedOn) {
 				long now = System.currentTimeMillis();
 				long change = now - lastUpdateTime;
@@ -202,14 +209,15 @@ public class Datastore {
 	}
 
 	public void startClock() {
-		if (scheduledTask == null || scheduledTask.isCancelled())
+		if (scheduledTask == null || scheduledTask.isCancelled()) {
 			scheduledTask = scheduler.scheduleAtFixedRate(() -> {
 				updateData();
-			}, playtimeTracker.getConfig().saveInterval, playtimeTracker.getConfig().saveInterval, TimeUnit.SECONDS);
+			}, ConfigHandler.saveInterval, ConfigHandler.saveInterval, TimeUnit.SECONDS);
+		}
 	}
 
 	public void stopClock() {
-		if (scheduledTask != null && !scheduledTask.isCancelled() && !playtimeTracker.getConfig().multiInstance && !loggedOn)
+		if (scheduledTask != null && !scheduledTask.isCancelled() && !ConfigHandler.multiInstance && !loggedOn)
 			scheduledTask.cancel(false);
 	}
 

@@ -1,0 +1,15 @@
+{
+    "playtimetracker.config.title": "Playtime Tracker Config",
+    "playtimetracker.playtime": "Playtime: %1$s",
+    "playtimetracker.playtime.session": "Session Playtime: %1$s",
+    "playtimetracker.playtime.total": "Total Playtime: %1$s",
+    "playtimetracker.playtime.total.session": "Session Total Playtime: %1$s",
+    "playtimetracker.date.relative.days": "%1$s Days",
+    "playtimetracker.date.relative.months": "%1$s Months",
+    "playtimetracker.date.relative.years": "%1$s Years",
+    "playtimetracker.date.relative.days.singular": "%1$s Day",
+    "playtimetracker.date.relative.months.singular": "%1$s Month",
+    "playtimetracker.date.relative.years.singular": "%1$s Year",
+    "playtimetracker.menu.current": "Current Session",
+    "playtimetracker.menu.all": "All History"
+}

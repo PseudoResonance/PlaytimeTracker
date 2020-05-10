@@ -1,69 +1,64 @@
 package io.github.pseudoresonance.playtimetracker;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.init.Blocks;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.Mod.EventHandler;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLModDisabledEvent;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientConnectedToServerEvent;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientDisconnectionFromServerEvent;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = PlaytimeTracker.MODID, name = PlaytimeTracker.NAME, version = PlaytimeTracker.VERSION, clientSideOnly = true, acceptedMinecraftVersions = "[1.12,1.12.2]", canBeDeactivated = false)
+@Mod("playtimetracker")
 public class PlaytimeTracker {
+	
 	public static final String MODID = "playtimetracker";
-	public static final String NAME = "PlaytimeTracker";
+	public static final String NAME = "Playtime Tracker";
 	public static final String VERSION = "1.1";
+	
+	private static final Logger logger = LogManager.getLogger();
 
-	private static Logger logger;
-
-	private static ConfigHandler config = null;
 	private static Datastore datastore = null;
 	private static ClockHud clockHud = null;
 	
 	private String currentServerIp = "";
-
-	@EventHandler
-	public void preInit(FMLPreInitializationEvent event) {
-		logger = event.getModLog();
-		config = new ConfigHandler(this);
-		datastore = new Datastore(this);
+	
+	public PlaytimeTracker() {
 		clockHud = new ClockHud(this);
-	}
-
-	@EventHandler
-	public void init(FMLInitializationEvent event) {
+		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
 		MinecraftForge.EVENT_BUS.register(this);
 		MinecraftForge.EVENT_BUS.register(clockHud);
-		if (config.multiInstance)
+		ConfigHandler.setup(this);
+		ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ConfigHandler.CLIENT_SPEC);
+	}
+
+	private void setup(final FMLCommonSetupEvent event) {
+		datastore = new Datastore(this);
+		if (ConfigHandler.multiInstance)
 			datastore.startClock();
 	}
 
-	@EventHandler
-	public void disabled(FMLModDisabledEvent event) {
+	@SubscribeEvent
+	public void disabled(FMLServerStoppingEvent event) {
 		datastore.logOff();
 	}
 
 	@SubscribeEvent
-	public void connected(ClientConnectedToServerEvent event) {
-		currentServerIp = "mp." + event.getManager().getRemoteAddress().toString().toLowerCase().split("/")[0].replace('.', ',');
-		if (event.isLocal())
-			currentServerIp = "sp." + Minecraft.getMinecraft().getIntegratedServer().worlds[0].getSaveHandler().getWorldDirectory().getName().replaceAll("\\.", "%2E");
+	public void connected(ClientPlayerNetworkEvent.LoggedInEvent event) {
+		currentServerIp = "mp." + event.getNetworkManager().getRemoteAddress().toString().toLowerCase().split("/")[0].replace('.', ',');
+		if (Minecraft.getInstance().isSingleplayer())
+			currentServerIp = "sp." + Minecraft.getInstance().getIntegratedServer().getWorlds().iterator().next().getSaveHandler().getWorldDirectory().getName().replaceAll("\\.", "%2E");
 		datastore.logOn(currentServerIp);
 	}
 
 	@SubscribeEvent
-	public void disconnected(ClientDisconnectionFromServerEvent event) {
+	public void disconnected(ClientPlayerNetworkEvent.LoggedOutEvent event) {
 		datastore.logOff();
-	}
-	
-	public ConfigHandler getConfig() {
-		return config;
 	}
 	
 	public Datastore getDatastore() {

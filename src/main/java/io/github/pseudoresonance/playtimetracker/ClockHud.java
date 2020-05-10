@@ -1,31 +1,20 @@
 package io.github.pseudoresonance.playtimetracker;
 
-import java.awt.Color;
 import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
-
-import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiIngameMenu;
-import net.minecraft.client.gui.GuiMainMenu;
-import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.gui.screen.IngameMenuScreen;
+import net.minecraft.client.gui.screen.MainMenuScreen;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.Widget;
 import net.minecraft.client.resources.I18n;
-import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.client.event.GuiScreenEvent.InitGuiEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
-import net.minecraftforge.fml.common.gameevent.TickEvent.RenderTickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public class ClockHud {
 
@@ -33,85 +22,34 @@ public class ClockHud {
 
 	private PlaytimeTracker playtimeTracker;
 
-	private ScaledResolution scaledResolution;
-	private int touchValue = 0;
+	private TextHitbox hitbox = null;
 
 	ClockHud(PlaytimeTracker playtimeTracker) {
 		this.playtimeTracker = playtimeTracker;
 	}
 
 	@SubscribeEvent
-	public void onRenderTick(RenderTickEvent event) {
-		if (event.phase.equals(Phase.START))
-			return;
-		onTickInGame(Minecraft.getMinecraft());
-	}
-
-	public boolean onTickInGame(Minecraft mc) {
-		if (playtimeTracker.getConfig().enabled && mc.currentScreen instanceof GuiIngameMenu) {
-			GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-			scaledResolution = new ScaledResolution(mc);
-			display(mc);
-			GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-		} else if (playtimeTracker.getConfig().enabled && mc.currentScreen instanceof GuiMainMenu) {
-			GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-			scaledResolution = new ScaledResolution(mc);
-			displayTotal(mc);
-			GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	public void onInitGuiEvent(final InitGuiEvent event) {
+		final Screen gui = event.getGui();
+		if (gui instanceof IngameMenuScreen || gui instanceof MainMenuScreen) {
+			hitbox = new TextHitbox();
+			hitbox.active = false;
+			event.addWidget(hitbox);
 		}
-		return true;
-	}
-
-	private void testMouse(Minecraft mc, int x, int y, int width, int height) {
-		int i = Mouse.getEventX() * mc.currentScreen.width / mc.displayWidth;
-		int j = mc.currentScreen.height - Mouse.getEventY() * mc.currentScreen.height / mc.displayHeight - 1;
-		int k = Mouse.getEventButton();
-		if (Mouse.getEventButtonState()) {
-			if (mc.gameSettings.touchscreen && this.touchValue++ > 0) {
-				return;
-			}
-			if (i >= x && j >= y && i < x + width && j < y + height) {
-				mc.displayGuiScreen(new DataGui(playtimeTracker, mc.currentScreen));
-			}
-		} else if (k != -1) {
-			if (mc.gameSettings.touchscreen && --this.touchValue > 0) {
-				return;
-			}
-		}
-	}
-
-	private void display(Minecraft mc) {
-		String clock = I18n.format("playtimetracker.playtime.session", currentClock(playtimeTracker.getDatastore().getSessionCurrentPlaytime()));
-		int width = mc.fontRenderer.getStringWidth(clock);
-		int height = mc.fontRenderer.FONT_HEIGHT;
-		int xBase = getX(width, playtimeTracker.getConfig().alignMode, playtimeTracker.getConfig().xOffset);
-		int yBase = getY(height, playtimeTracker.getConfig().alignMode, playtimeTracker.getConfig().yOffset);
-		mc.fontRenderer.drawStringWithShadow(clock, xBase, yBase, 0xffffff);
-		testMouse(mc, xBase, yBase, width, height);
-	}
-
-	private void displayTotal(Minecraft mc) {
-		String clock = I18n.format("playtimetracker.playtime.total.session", currentClock(playtimeTracker.getDatastore().getSessionTotalPlaytime()));
-		int width = mc.fontRenderer.getStringWidth(clock);
-		int height = mc.fontRenderer.FONT_HEIGHT;
-		int xBase = getX(width, playtimeTracker.getConfig().alignModeMain, playtimeTracker.getConfig().xOffsetMain);
-		int yBase = getY(height, playtimeTracker.getConfig().alignModeMain, playtimeTracker.getConfig().yOffsetMain);
-		mc.fontRenderer.drawStringWithShadow(clock, xBase, yBase, 0xffffff);
-		testMouse(mc, xBase, yBase, width, height);
 	}
 
 	private int getX(int width, String alignMode, int xOffset) {
 		if (alignMode.equalsIgnoreCase("topcenter") || alignMode.equalsIgnoreCase("bottomcenter"))
-			return scaledResolution.getScaledWidth() / 2 - width / 2 + xOffset;
+			return Minecraft.getInstance().func_228018_at_().getScaledWidth() / 2 - width / 2 + xOffset;
 		else if (alignMode.equalsIgnoreCase("topright") || alignMode.equalsIgnoreCase("bottomright"))
-			return scaledResolution.getScaledWidth() - width - xOffset;
+			return Minecraft.getInstance().func_228018_at_().getScaledWidth() - width - xOffset;
 		else
 			return xOffset;
 	}
 
 	private int getY(int height, String alignMode, int yOffset) {
 		if (alignMode.equalsIgnoreCase("bottomleft") || alignMode.equalsIgnoreCase("bottomcenter") || alignMode.equalsIgnoreCase("bottomright"))
-			return scaledResolution.getScaledHeight() - height - yOffset;
+			return Minecraft.getInstance().func_228018_at_().getScaledHeight() - height - yOffset;
 		else
 			return yOffset;
 	}
@@ -178,6 +116,65 @@ public class ClockHud {
 		sSeconds = df.format(seconds);
 		String ret = sYears + sMonths + sDays + sHours + ":" + sMinutes + ":" + sSeconds;
 		return ret;
+	}
+
+	private class TextHitbox extends Widget {
+		
+		public TextHitbox() {
+			super(0, 0, 0, 0, "");
+		}
+
+		@SuppressWarnings("resource")
+		public boolean mouseClicked(double p_mouseClicked_1_, double p_mouseClicked_3_, int p_mouseClicked_5_) {
+			if (this.active && this.visible) {
+				if (this.isValidClickButton(p_mouseClicked_5_)) {
+					boolean flag = this.clicked(p_mouseClicked_1_, p_mouseClicked_3_);
+					if (flag) {
+						this.playDownSound(Minecraft.getInstance().getSoundHandler());
+						Minecraft.getInstance().displayGuiScreen(new DataGui(playtimeTracker, Minecraft.getInstance().currentScreen));
+						return true;
+					}
+				}
+				return false;
+			} else {
+				return false;
+			}
+		}
+
+		protected boolean clicked(double x, double y) {
+			return this.active && this.visible && x >= (double) this.x && y >= (double) this.y && x < (double) (this.x + this.width) && y < (double) (this.y + this.height);
+		}
+
+		public void setBounds(int xIn, int yIn, int widthIn, int heightIn) {
+			this.x = xIn;
+			this.y = yIn;
+			this.width = widthIn;
+			this.height = heightIn;
+			active = true;
+		}
+
+		@SuppressWarnings("resource")
+		public void renderButton(int p_renderButton_1_, int p_renderButton_2_, float p_renderButton_3_) {
+			GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+			if (ConfigHandler.enabled && Minecraft.getInstance().currentScreen instanceof IngameMenuScreen) {
+				String clock = I18n.format("playtimetracker.playtime.session", currentClock(playtimeTracker.getDatastore().getSessionCurrentPlaytime()));
+				int width = Minecraft.getInstance().fontRenderer.getStringWidth(clock);
+				int height = Minecraft.getInstance().fontRenderer.FONT_HEIGHT;
+				int xBase = getX(width, ConfigHandler.alignMode, ConfigHandler.xOffset);
+				int yBase = getY(height, ConfigHandler.alignMode, ConfigHandler.yOffset);
+				Minecraft.getInstance().fontRenderer.drawStringWithShadow(clock, xBase, yBase, 0xffffff);
+				setBounds(xBase, yBase, width, height);
+			} else if (ConfigHandler.enabled && Minecraft.getInstance().currentScreen instanceof MainMenuScreen) {
+				String clock = I18n.format("playtimetracker.playtime.total.session", currentClock(playtimeTracker.getDatastore().getSessionTotalPlaytime()));
+				int width = Minecraft.getInstance().fontRenderer.getStringWidth(clock);
+				int height = Minecraft.getInstance().fontRenderer.FONT_HEIGHT;
+				int xBase = getX(width, ConfigHandler.alignModeMain, ConfigHandler.xOffsetMain);
+				int yBase = getY(height, ConfigHandler.alignModeMain, ConfigHandler.yOffsetMain);
+				Minecraft.getInstance().fontRenderer.drawStringWithShadow(clock, xBase, yBase, 0xffffff);
+				setBounds(xBase, yBase, width, height);
+			}
+		}
+
 	}
 
 }

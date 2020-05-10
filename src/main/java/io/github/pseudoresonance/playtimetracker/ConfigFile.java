@@ -2,14 +2,10 @@ package io.github.pseudoresonance.playtimetracker;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.RandomAccessFile;
 import java.nio.charset.Charset;
-import java.util.logging.Level;
-
 import org.simpleyaml.configuration.file.FileConfiguration;
 import org.simpleyaml.configuration.file.YamlConfiguration;
 import org.simpleyaml.utils.Validate;
@@ -151,7 +147,8 @@ public class ConfigFile {
 			Validate.notNull(configFile, "File cannot be null");
 			Files.createParentDirs(configFile);
 			String data = config.saveToString();
-			OutputStreamWriter writer = new OutputStreamWriter(out, config.UTF8_OVERRIDE && !config.UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset());
+			@SuppressWarnings("deprecation")
+			OutputStreamWriter writer = new OutputStreamWriter(out, FileConfiguration.UTF8_OVERRIDE && !FileConfiguration.UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset());
 			try {
 				writer.write(data);
 			} finally {

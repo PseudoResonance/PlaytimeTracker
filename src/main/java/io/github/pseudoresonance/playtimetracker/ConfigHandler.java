@@ -1,89 +1,172 @@
 package io.github.pseudoresonance.playtimetracker;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import org.apache.commons.lang3.tuple.Pair;
 
-import net.minecraftforge.common.config.Config;
-import net.minecraftforge.common.config.ConfigManager;
-import net.minecraftforge.fml.client.event.ConfigChangedEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
+import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
+import net.minecraftforge.common.ForgeConfigSpec.IntValue;
+import net.minecraftforge.common.ForgeConfigSpec.LongValue;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber;
+import net.minecraftforge.fml.config.ModConfig;
 
-@Config(modid = PlaytimeTracker.MODID)
-@Config.LangKey("playtimetracker.config.title")
+@EventBusSubscriber(modid = PlaytimeTracker.MODID, bus = EventBusSubscriber.Bus.MOD)
 public class ConfigHandler {
-
+	
 	private static PlaytimeTracker playtimeTracker;
-
-	ConfigHandler(PlaytimeTracker playtimeTracker) {
+	
+	protected static void setup(PlaytimeTracker playtimeTracker) {
 		ConfigHandler.playtimeTracker = playtimeTracker;
 	}
 
-	@Config.Comment("Enable display in pause menu")
-	public static boolean enabled = true;
+	public static final ClientConfig CLIENT;
+	public static final ForgeConfigSpec CLIENT_SPEC;
+	static {
+		final Pair<ClientConfig, ForgeConfigSpec> specPair = new ForgeConfigSpec.Builder().configure(ClientConfig::new);
+		CLIENT_SPEC = specPair.getRight();
+		CLIENT = specPair.getLeft();
+	}
+	
+	public static boolean enabled;
+	public static String database;
+	public static long saveInterval;
+	public static boolean multiInstance;
+	public static String alignMode;
+	public static int xOffset;
+	public static int yOffset;
+	public static String alignModeMain;
+	public static int xOffsetMain;
+	public static int yOffsetMain;
+	public static int barColor;
+	public static int barBackgroundColor;
+	public static int borderColor;
+	public static int currentColor;
 
-	@Config.Comment("Database file location")
-	public static String database = "./playtime";
-
-	@Config.Comment("Save interval in seconds")
-	public static int saveInterval = 120;
-
-	@Config.Comment("Where the HUD should be rendered (topleft, topcenter, topright, bottomleft, bottomcenter, bottomright)")
-    public static String alignMode = "topcenter";
-
-	@Config.Comment("X offset")
-    public static int xOffset = 0;
-
-	@Config.Comment("Y offset")
-    public static int yOffset = 3;
-
-	@Config.Comment("Where the HUD should be rendered on the main menu (topleft, topcenter, topright, bottomleft, bottomcenter, bottomright)")
-    public static String alignModeMain = "topcenter";
-
-	@Config.Comment("X offset on the main menu")
-    public static int xOffsetMain = 0;
-
-	@Config.Comment("Y offset on the main menu")
-    public static int yOffsetMain = 3;
-
-	@Config.Comment("Whether multiple instances are using the database file")
-	public static boolean multiInstance = false;
-
-	@Config.Comment("Playtime graph bar color")
-    public static int barColor = 0xFFFF0000;
-
-	@Config.Comment("Playtime graph bar background color")
-    public static int barBackgroundColor = 0xFF555555;
-
-	@Config.Comment("Playtime graph border color")
-    public static int borderColor = 0xFF000000;
-
-	@Config.Comment("Playtime current server text color")
-    public static int currentColor = 0xFFFF0000;
-
-	@Mod.EventBusSubscriber(modid = PlaytimeTracker.MODID)
-	private static class ConfigEventHandler {
-		@SubscribeEvent
-		public static void onConfigChanged(final ConfigChangedEvent.OnConfigChangedEvent event) {
-			if (event.getModID().equals(PlaytimeTracker.MODID)) {
-				String oldDatabase = database;
-				ConfigManager.sync(PlaytimeTracker.MODID, Config.Type.INSTANCE);
-				if (!oldDatabase.equals(database))
+	public static void bakeConfig() {
+		enabled = CLIENT.enabled.get();
+		database = CLIENT.database.get();
+		saveInterval = CLIENT.saveInterval.get();
+		multiInstance = CLIENT.multiInstance.get();
+		alignMode = CLIENT.alignMode.get();
+		xOffset = CLIENT.xOffset.get();
+		yOffset = CLIENT.yOffset.get();
+		alignModeMain = CLIENT.alignModeMain.get();
+		xOffsetMain = CLIENT.xOffsetMain.get();
+		yOffsetMain = CLIENT.yOffsetMain.get();
+		barColor = CLIENT.barColor.get();
+		barBackgroundColor = CLIENT.barBackgroundColor.get();
+		borderColor = CLIENT.borderColor.get();
+		currentColor = CLIENT.currentColor.get();
+	}
+	
+	@SubscribeEvent
+	public static void onModConfigEvent(final ModConfig.ModConfigEvent configEvent) {
+		if (configEvent.getConfig().getSpec() == ConfigHandler.CLIENT_SPEC) {
+			String oldDatabase = database;
+			bakeConfig();
+			if (playtimeTracker.getDatastore() != null) {
+				if (oldDatabase == null || !oldDatabase.equals(database))
 					playtimeTracker.getDatastore().updateLocation(database);
-				if (saveInterval <= 0)
-					saveInterval = 120;
 				if (multiInstance)
 					playtimeTracker.getDatastore().startClock();
 				else
 					playtimeTracker.getDatastore().stopClock();
-				ConfigManager.sync(PlaytimeTracker.MODID, Config.Type.INSTANCE);
 			}
 		}
 	}
+
 	
+	public static class ClientConfig {
+		
+		public final BooleanValue enabled;
+		public final ConfigValue<String> database;
+		public final LongValue saveInterval;
+		public final BooleanValue multiInstance;
+		public final ConfigValue<String> alignMode;
+		public final IntValue xOffset;
+		public final IntValue yOffset;
+		public final ConfigValue<String> alignModeMain;
+		public final IntValue xOffsetMain;
+		public final IntValue yOffsetMain;
+		public final IntValue barColor;
+		public final IntValue barBackgroundColor;
+		public final IntValue borderColor;
+		public final IntValue currentColor;
+
+		public ClientConfig(ForgeConfigSpec.Builder builder) {
+			builder.push("general");
+			enabled = builder
+					.comment("Enable display in pause menu")
+					.translation(PlaytimeTracker.MODID + ".config." + "enabled")
+					.define("enabled", true);
+			database = builder
+					.comment("Database file location")
+					.translation(PlaytimeTracker.MODID + ".config." + "database")
+					.define("database", "./playtime");
+			saveInterval = builder
+					.comment("Save interval in seconds")
+					.translation(PlaytimeTracker.MODID + ".config." + "saveInterval")
+					.defineInRange("saveInterval", 120, 0, Long.MAX_VALUE);
+			multiInstance = builder
+					.comment("Whether multiple instances are using the database file")
+					.translation(PlaytimeTracker.MODID + ".config." + "multiInstance")
+					.define("multiInstance", true);
+			builder.pop();
+			builder.push("HUD Settings");
+			alignMode = builder
+					.comment("Where the HUD should be rendered (topleft, topcenter, topright, bottomleft, bottomcenter, bottomright)")
+					.translation(PlaytimeTracker.MODID + ".config." + "alignMode")
+					.define("alignMode", "topcenter");
+			xOffset = builder
+					.comment("X offset")
+					.translation(PlaytimeTracker.MODID + ".config." + "xOffset")
+					.defineInRange("xOffset", 0, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			yOffset = builder
+					.comment("Y offset")
+					.translation(PlaytimeTracker.MODID + ".config." + "yOffset")
+					.defineInRange("yOffset", 3, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			builder.pop();
+			builder.push("HUD Settings - Main Menu");
+			alignModeMain = builder
+					.comment("Where the HUD should be rendered on the main menu (topleft, topcenter, topright, bottomleft, bottomcenter, bottomright)")
+					.translation(PlaytimeTracker.MODID + ".config." + "alignModeMain")
+					.define("alignModeMain", "topcenter");
+			xOffsetMain = builder
+					.comment("X offset on the main menu")
+					.translation(PlaytimeTracker.MODID + ".config." + "xOffsetMain")
+					.defineInRange("xOffsetMain", 0, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			yOffsetMain = builder
+					.comment("Y offset on the main menu")
+					.translation(PlaytimeTracker.MODID + ".config." + "yOffsetMain")
+					.defineInRange("yOffsetMain", 3, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			builder.pop();
+			builder.push("Colors");
+			barColor = builder
+					.comment("Playtime graph bar color")
+					.translation(PlaytimeTracker.MODID + ".config." + "barColor")
+					.defineInRange("barColor", 0xFFFF0000, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			barBackgroundColor = builder
+					.comment("Playtime graph bar background color")
+					.translation(PlaytimeTracker.MODID + ".config." + "barBackgroundColor")
+					.defineInRange("barBackgroundColor", 0xFF555555, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			borderColor = builder
+					.comment("Playtime graph border color")
+					.translation(PlaytimeTracker.MODID + ".config." + "borderColor")
+					.defineInRange("borderColor", 0xFF000000, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			currentColor = builder
+					.comment("Playtime current server text color")
+					.translation(PlaytimeTracker.MODID + ".config." + "currentColor")
+					.defineInRange("currentColor", 0xFFFF0000, Integer.MIN_VALUE, Integer.MAX_VALUE);
+			builder.pop();
+		}
+
+	}
+
 	protected static void setDatabase(String location) {
 		database = location;
-		ConfigManager.sync(PlaytimeTracker.MODID, Config.Type.INSTANCE);
+		CLIENT.database.set(location);
+		CLIENT_SPEC.save();
 	}
 
 }

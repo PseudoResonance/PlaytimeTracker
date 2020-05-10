@@ -1,38 +1,26 @@
 package io.github.pseudoresonance.playtimetracker;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-
 import static java.util.Collections.reverseOrder;
 
-import com.google.common.collect.Lists;
-
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiLabel;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiSlot;
-import net.minecraft.client.gui.GuiSnooper;
-import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.gui.SlotGui;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.button.Button;
 import net.minecraft.client.resources.I18n;
-import net.minecraft.client.settings.GameSettings;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraft.util.text.TranslationTextComponent;
 
-public class DataGui extends GuiScreen {
+public class DataGui extends Screen {
 
 	private PlaytimeTracker playtimeTracker;
-	private final GuiScreen lastScreen;
+	private final Screen lastScreen;
 
 	private String multiplayer = "";
 	private String singleplayer = "";
 	private static boolean displaySession = false;
-	private GuiButton toggleButton = null;
+	private Button toggleButton = null;
 
 	private final HashMap<String, Long> data = new HashMap<String, Long>();
 	private ArrayList<String> keys = new ArrayList<String>();
@@ -48,7 +36,8 @@ public class DataGui extends GuiScreen {
 	private long sessionMaxVal = 0;
 	private String sessionTotal = "";
 
-	DataGui(PlaytimeTracker playtimeTracker, GuiScreen lastScreen) {
+	DataGui(PlaytimeTracker playtimeTracker, Screen lastScreen) {
+	      super(new TranslationTextComponent(""));
 		this.playtimeTracker = playtimeTracker;
 		this.lastScreen = lastScreen;
 	}
@@ -59,11 +48,16 @@ public class DataGui extends GuiScreen {
 	 * beforehand.
 	 */
 	@Override
-	public void initGui() {
+	public void init() {
 		multiplayer = I18n.format("menu.multiplayer");
 		singleplayer = I18n.format("menu.singleplayer");
-		this.toggleButton = this.addButton(new GuiButton(1, this.width / 2 - 152, this.height - 30, 150, 20, displaySession ? I18n.format("playtimetracker.menu.current") : I18n.format("playtimetracker.menu.all")));
-		this.buttonList.add(new GuiButton(2, this.width / 2 + 2, this.height - 30, 150, 20, I18n.format("gui.done")));
+		this.toggleButton = this.addButton(new Button(this.width / 2 - 152, this.height - 30, 150, 20, displaySession ? I18n.format("playtimetracker.menu.current") : I18n.format("playtimetracker.menu.all"), (p_213109_1_) -> {
+			displaySession = !displaySession;
+			this.toggleButton.setMessage(displaySession ? I18n.format("playtimetracker.menu.current") : I18n.format("playtimetracker.menu.all"));
+		}));
+		this.addButton(new Button(this.width / 2 + 2, this.height - 30, 150, 20, I18n.format("gui.done"), (p_213109_1_) -> {
+			Minecraft.getInstance().displayGuiScreen(this.lastScreen);
+		}));
 		this.data.clear();
 		this.keys.clear();
 		data.putAll(playtimeTracker.getDatastore().getPlaytimeMap());
@@ -104,45 +98,20 @@ public class DataGui extends GuiScreen {
 	}
 
 	/**
-	 * Handles mouse input.
-	 */
-	public void handleMouseInput() throws IOException {
-		super.handleMouseInput();
-		this.list.handleMouseInput();
-	}
-
-	/**
-	 * Called by the controls from the buttonList when activated. (Mouse pressed for
-	 * buttons)
-	 */
-	@Override
-	protected void actionPerformed(GuiButton button) throws IOException {
-		if (button.enabled) {
-			if (button.id == 2) {
-				this.mc.displayGuiScreen(this.lastScreen);
-			} else if (button.id == 1) {
-				displaySession = !displaySession;
-				this.toggleButton.displayString = displaySession ? I18n.format("playtimetracker.menu.current") : I18n.format("playtimetracker.menu.all");
-			}
-		}
-	}
-
-	/**
 	 * Draws the screen and all the components in it.
 	 */
 	@Override
-	public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-		this.drawDefaultBackground();
+	public void render(int mouseX, int mouseY, float partialTicks) {
+		this.renderBackground();
 		if (displaySession)
-			this.sessionList.drawScreen(mouseX, mouseY, partialTicks);
+			this.sessionList.render(mouseX, mouseY, partialTicks);
 		else
-			this.list.drawScreen(mouseX, mouseY, partialTicks);
-		this.drawCenteredString(this.fontRenderer, I18n.format("playtimetracker.playtime.total" + (displaySession ? ".session" : ""), displaySession ? sessionTotal : total), this.width / 2, 8, -1);
-		super.drawScreen(mouseX, mouseY, partialTicks);
+			this.list.render(mouseX, mouseY, partialTicks);
+		this.drawCenteredString(this.font, I18n.format("playtimetracker.playtime.total" + (displaySession ? ".session" : ""), displaySession ? sessionTotal : total), this.width / 2, 8, -1);
+		super.render(mouseX, mouseY, partialTicks);
 	}
 
-	@SideOnly(Side.CLIENT)
-	class List extends GuiSlot {
+	class List extends SlotGui {
 
 		private static final int padding = 2;
 
@@ -152,35 +121,28 @@ public class DataGui extends GuiScreen {
 		private long maxVal;
 
 		public List(HashMap<String, Long> data, ArrayList<String> keys, ArrayList<String> values, long maxVal) {
-			super(DataGui.this.mc, DataGui.this.width, DataGui.this.height, 8 + DataGui.this.mc.fontRenderer.FONT_HEIGHT + 8, DataGui.this.height - 40, DataGui.this.fontRenderer.FONT_HEIGHT + padding * 2);
+			super(DataGui.this.minecraft, DataGui.this.width, DataGui.this.height, 8 + DataGui.this.font.FONT_HEIGHT + 8, DataGui.this.height - 40, DataGui.this.font.FONT_HEIGHT + padding * 2);
 			this.data = data;
 			this.keys = keys;
 			this.values = values;
 			this.maxVal = maxVal;
 		}
 
-		protected int getSize() {
+		protected int getItemCount() {
 			return DataGui.this.data.size();
-		}
-
-		/**
-		 * The element in the slot that was clicked, boolean for whether it was double
-		 * clicked or not
-		 */
-		protected void elementClicked(int slotIndex, boolean isDoubleClick, int mouseX, int mouseY) {
 		}
 
 		/**
 		 * Returns true if the element passed in is currently selected
 		 */
-		protected boolean isSelected(int slotIndex) {
+		protected boolean isSelectedItem(int slotIndex) {
 			return false;
 		}
 
-		protected void drawBackground() {
+		protected void renderBackground() {
 		}
 
-		protected void drawSlot(int slotIndex, int xPos, int yPos, int heightIn, int mouseXIn, int mouseYIn, float partialTicks) {
+		protected void renderItem(int slotIndex, int xPos, int yPos, int heightIn, int mouseXIn, int mouseYIn, float partialTicks) {
 			if (slotIndex >= keys.size())
 				return;
 			String server = this.keys.get(slotIndex);
@@ -189,20 +151,20 @@ public class DataGui extends GuiScreen {
 				text = server.substring(3, server.length()).replace(',', '.') + " (" + multiplayer + ")";
 			else if (server.startsWith("sp."))
 				text = server.substring(3, server.length()).replaceAll("%2E", ".") + " (" + singleplayer + ")";
-			DataGui.this.fontRenderer.drawString(text, 10 + padding, yPos + padding, server.equals(playtimeTracker.getDatastore().getCurrentServerName()) ? playtimeTracker.getConfig().currentColor : -1);
+			DataGui.this.font.drawString(text, 10 + padding, yPos + padding, server.equals(playtimeTracker.getDatastore().getCurrentServerName()) ? ConfigHandler.currentColor : -1);
 			int maxWidth = (DataGui.this.width - 15) - 230;
 			long time = this.data.get(server);
 			double percentMax = (double) time / this.maxVal;
 			int width = (int) Math.ceil(maxWidth * percentMax);
 			// Bar
-			Minecraft.getMinecraft().currentScreen.drawRect(230, yPos, DataGui.this.width - 15, yPos + this.slotHeight - padding, playtimeTracker.getConfig().barBackgroundColor); // Background
-			Minecraft.getMinecraft().currentScreen.drawRect(230, yPos, 230 + width, yPos + this.slotHeight - padding, playtimeTracker.getConfig().barColor); // Progress
+			Screen.fill(230, yPos, DataGui.this.width - 15, yPos + this.getItemHeight() - padding, ConfigHandler.barBackgroundColor); // Background
+			Screen.fill(230, yPos, 230 + width, yPos + this.getItemHeight() - padding, ConfigHandler.barColor); // Progress
 			// Borders
-			Minecraft.getMinecraft().currentScreen.drawRect(230, yPos, DataGui.this.width - 15, yPos + 1, playtimeTracker.getConfig().borderColor); // Top
-			Minecraft.getMinecraft().currentScreen.drawRect(230, yPos + this.slotHeight - 1 - padding, DataGui.this.width - 15, yPos + this.slotHeight - padding, playtimeTracker.getConfig().borderColor); // Bottom
-			Minecraft.getMinecraft().currentScreen.drawRect(230, yPos, 231, yPos + this.slotHeight - padding, playtimeTracker.getConfig().borderColor); // Left
-			Minecraft.getMinecraft().currentScreen.drawRect(DataGui.this.width - 16, yPos, DataGui.this.width - 15, yPos + this.slotHeight - padding, playtimeTracker.getConfig().borderColor); // Right
-			DataGui.this.fontRenderer.drawString(this.values.get(slotIndex), 230 + padding, yPos + padding, -1);
+			Screen.fill(230, yPos, DataGui.this.width - 15, yPos + 1, ConfigHandler.borderColor); // Top
+			Screen.fill(230, yPos + this.getItemHeight() - 1 - padding, DataGui.this.width - 15, yPos + this.getItemHeight() - padding, ConfigHandler.borderColor); // Bottom
+			Screen.fill(230, yPos, 231, yPos + this.getItemHeight() - padding, ConfigHandler.borderColor); // Left
+			Screen.fill(DataGui.this.width - 16, yPos, DataGui.this.width - 15, yPos + this.getItemHeight() - padding, ConfigHandler.borderColor); // Right
+			DataGui.this.font.drawString(this.values.get(slotIndex), 230 + padding, yPos + padding, -1);
 		}
 
 		protected int getScrollBarX() {
