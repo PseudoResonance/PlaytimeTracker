@@ -56,6 +56,7 @@ public class ConfigHandler {
 	public void onConfigChanged(final ConfigChangedEvent.OnConfigChangedEvent event) {
 		if (event.modID.equals(PlaytimeTracker.MODID)) {
 			ConfigCategory cat = config.getCategory(Configuration.CATEGORY_GENERAL);
+			String oldDatabase = database;
 			enabled = cat.get("enabled").getBoolean();
 			database = cat.get("database").getString();
 			saveInterval = cat.get("saveInterval").getInt();
@@ -70,6 +71,8 @@ public class ConfigHandler {
 			barBackgroundColor = cat.get("barBackgroundColor").getInt();
 			borderColor = cat.get("borderColor").getInt();
 			currentColor = cat.get("currentColor").getInt();
+			if (!oldDatabase.equals(database))
+				playtimeTracker.getDatastore().updateLocation(database);
 			if (multiInstance)
 				playtimeTracker.getDatastore().startClock();
 			else

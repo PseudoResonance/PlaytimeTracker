@@ -2,9 +2,16 @@ package io.github.pseudoresonance.playtimetracker;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -13,6 +20,8 @@ import java.util.concurrent.TimeUnit;
 import org.simpleyaml.configuration.ConfigurationSection;
 import org.simpleyaml.configuration.file.YamlFile;
 import org.simpleyaml.exceptions.InvalidConfigurationException;
+
+import com.google.common.base.Charsets;
 
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
@@ -25,18 +34,18 @@ public class Datastore {
 	private ConfigFile dataFile;
 	private File dataFolder;
 
-	private HashMap<String, Long> data = new HashMap<String, Long>();
-	private long totalTime = 0;
-	
-	private HashMap<String, Long> sessionData = new HashMap<String, Long>();
-	private long sessionTotalTime = 0;
+	private ConcurrentHashMap<String, Long> data = new ConcurrentHashMap<String, Long>();
+	private volatile long totalTime = 0;
 
-	private boolean loggedOn = false;
+	private ConcurrentHashMap<String, Long> sessionData = new ConcurrentHashMap<String, Long>();
+	private volatile long sessionTotalTime = 0;
+
+	private volatile boolean loggedOn = false;
 	private String serverName = "";
-	private long lastUpdateTime = 0;
+	private volatile long lastUpdateTime = 0;
 
-	private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-	private ScheduledFuture<?> scheduledTask = null;
+	private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+	private volatile ScheduledFuture<?> scheduledTask = null;
 
 	Datastore(PlaytimeTracker playtimeTracker) {
 		this.playtimeTracker = playtimeTracker;
@@ -53,8 +62,21 @@ public class Datastore {
 			}
 		}
 		dataFile = new ConfigFile(dataFolder, fileName);
-		dataFile.reload();
-		readConfig(true);
+		FileLock lock = null;
+		try (FileChannel channel = new RandomAccessFile(dataFile.getConfigFile(), "rw").getChannel();) {
+			lock = channel.lock();
+			dataFile.reload(new InputStreamReader(Channels.newInputStream(channel), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
+			readConfig(false, null);
+		} catch (Exception e) {
+			playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
+			e.printStackTrace();
+		} finally {
+			try {
+				if (lock != null)
+					lock.release();
+			} catch (IOException e) {
+			}
+		}
 	}
 
 	public void updateLocation(String location) {
@@ -64,17 +86,32 @@ public class Datastore {
 			dataFolder = newFolder;
 			dataFile.save();
 			dataFile = new ConfigFile(dataFolder, fileName);
-			dataFile.reload();
-			readConfig(false);
+			scheduler.schedule(() -> {
+				FileLock lock = null;
+				try (FileChannel channel = new RandomAccessFile(dataFile.getConfigFile(), "rw").getChannel();) {
+					lock = channel.lock();
+					dataFile.reload(new InputStreamReader(Channels.newInputStream(channel), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
+					readConfig(false, null);
+				} catch (Exception e) {
+					playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
+					e.printStackTrace();
+				} finally {
+					try {
+						if (lock != null)
+							lock.release();
+					} catch (IOException e) {
+					}
+				}
+			}, 0, TimeUnit.NANOSECONDS);
 		} catch (SecurityException e) {
 			throw new IllegalArgumentException(location);
 		}
 	}
 
-	private void readConfig(boolean overwrite) {
+	private void readConfig(boolean overwrite, InputStreamReader in) {
 		long newTotalTime = 0;
 		if (overwrite) {
-			dataFile.reload();
+			dataFile.reload(in);
 		} else
 			newTotalTime = totalTime;
 		ConfigurationSection section = dataFile.getConfig().getConfigurationSection("mp");
@@ -111,26 +148,39 @@ public class Datastore {
 	}
 
 	private void updateData() {
-		if (playtimeTracker.getConfig().multiInstance)
-			readConfig(true);
-		if (loggedOn) {
-			long now = System.currentTimeMillis();
-			long change = now - lastUpdateTime;
-			lastUpdateTime = now;
-			long val = 0;
-			if (data.containsKey(serverName))
-				val = data.get(serverName);
-			long sessionVal = 0;
-			if (sessionData.containsKey(serverName))
-				sessionVal = sessionData.get(serverName);
-			val += change;
-			totalTime += change;
-			sessionVal += change;
-			sessionTotalTime += change;
-			data.put(serverName, val);
-			sessionData.put(serverName, sessionVal);
-			dataFile.set(serverName, val);
-			dataFile.save();
+		FileLock lock = null;
+		try (RandomAccessFile raf = new RandomAccessFile(dataFile.getConfigFile(), "rw")) {
+			lock = raf.getChannel().lock();
+			if (playtimeTracker.getConfig().multiInstance)
+				readConfig(true, new InputStreamReader(Channels.newInputStream(raf.getChannel()), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
+			if (loggedOn) {
+				long now = System.currentTimeMillis();
+				long change = now - lastUpdateTime;
+				lastUpdateTime = now;
+				long val = 0;
+				if (data.containsKey(serverName))
+					val = data.get(serverName);
+				long sessionVal = 0;
+				if (sessionData.containsKey(serverName))
+					sessionVal = sessionData.get(serverName);
+				val += change;
+				totalTime += change;
+				sessionVal += change;
+				sessionTotalTime += change;
+				data.put(serverName, val);
+				sessionData.put(serverName, sessionVal);
+				dataFile.set(serverName, val);
+				dataFile.save(Channels.newOutputStream(raf.getChannel()));
+			}
+		} catch (Exception e) {
+			playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
+			e.printStackTrace();
+		} finally {
+			try {
+				if (lock != null)
+					lock.release();
+			} catch (IOException e) {
+			}
 		}
 	}
 
@@ -155,7 +205,7 @@ public class Datastore {
 				updateData();
 			}, playtimeTracker.getConfig().saveInterval, playtimeTracker.getConfig().saveInterval, TimeUnit.SECONDS);
 	}
-	
+
 	public void stopClock() {
 		if (scheduledTask != null && !scheduledTask.isCancelled() && !playtimeTracker.getConfig().multiInstance && !loggedOn)
 			scheduledTask.cancel(false);
@@ -189,12 +239,12 @@ public class Datastore {
 			val += System.currentTimeMillis() - lastUpdateTime;
 		return val;
 	}
-	
+
 	public Set<String> getPlaytimeKeys() {
 		return data.keySet();
 	}
-	
-	public HashMap<String, Long> getPlaytimeMap() {
+
+	public ConcurrentHashMap<String, Long> getPlaytimeMap() {
 		return data;
 	}
 
@@ -222,23 +272,23 @@ public class Datastore {
 			val += System.currentTimeMillis() - lastUpdateTime;
 		return val;
 	}
-	
+
 	public Set<String> getSessionPlaytimeKeys() {
 		return sessionData.keySet();
 	}
-	
-	public HashMap<String, Long> getSessionPlaytimeMap() {
+
+	public ConcurrentHashMap<String, Long> getSessionPlaytimeMap() {
 		return sessionData;
 	}
-	
+
 	public String getCurrentServerName() {
 		return serverName;
 	}
-	
+
 	public boolean isLoggedOn() {
 		return loggedOn;
 	}
-	
+
 	public long getLastUpdateTime() {
 		return lastUpdateTime;
 	}
