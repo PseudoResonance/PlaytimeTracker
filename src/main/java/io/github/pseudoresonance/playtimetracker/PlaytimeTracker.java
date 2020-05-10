@@ -18,7 +18,7 @@ import org.apache.logging.log4j.Logger;
 public class PlaytimeTracker {
 	public static final String MODID = "playtimetracker";
 	public static final String NAME = "PlaytimeTracker";
-	public static final String VERSION = "1.0";
+	public static final String VERSION = "1.1";
 
 	private static Logger logger;
 

@@ -66,7 +66,10 @@ public class ConfigHandler {
 		@SubscribeEvent
 		public static void onConfigChanged(final ConfigChangedEvent.OnConfigChangedEvent event) {
 			if (event.getModID().equals(PlaytimeTracker.MODID)) {
+				String oldDatabase = database;
 				ConfigManager.sync(PlaytimeTracker.MODID, Config.Type.INSTANCE);
+				if (!oldDatabase.equals(database))
+					playtimeTracker.getDatastore().updateLocation(database);
 				if (saveInterval <= 0)
 					saveInterval = 120;
 				if (multiInstance)
