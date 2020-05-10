@@ -1,4 +1,4 @@
-< en_us.lang - English localization file for PlaytimeTracker >
+< en_US.lang - English localization file for PlaytimeTracker >
 playtimetracker.config.title=Playtime Tracker Config
 playtimetracker.playtime=Playtime: %1$s
 playtimetracker.playtime.session=Session Playtime: %1$s

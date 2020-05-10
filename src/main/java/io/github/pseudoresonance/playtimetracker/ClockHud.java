@@ -82,21 +82,21 @@ public class ClockHud {
 
 	private void display(Minecraft mc) {
 		String clock = I18n.format("playtimetracker.playtime.session", currentClock(playtimeTracker.getDatastore().getSessionCurrentPlaytime()));
-		int width = mc.fontRenderer.getStringWidth(clock);
-		int height = mc.fontRenderer.FONT_HEIGHT;
+		int width = mc.fontRendererObj.getStringWidth(clock);
+		int height = mc.fontRendererObj.FONT_HEIGHT;
 		int xBase = getX(width, playtimeTracker.getConfig().alignMode, playtimeTracker.getConfig().xOffset);
 		int yBase = getY(height, playtimeTracker.getConfig().alignMode, playtimeTracker.getConfig().yOffset);
-		mc.fontRenderer.drawStringWithShadow(clock, xBase, yBase, 0xffffff);
+		mc.fontRendererObj.drawStringWithShadow(clock, xBase, yBase, 0xffffff);
 		testMouse(mc, xBase, yBase, width, height);
 	}
 
 	private void displayTotal(Minecraft mc) {
 		String clock = I18n.format("playtimetracker.playtime.total.session", currentClock(playtimeTracker.getDatastore().getSessionTotalPlaytime()));
-		int width = mc.fontRenderer.getStringWidth(clock);
-		int height = mc.fontRenderer.FONT_HEIGHT;
+		int width = mc.fontRendererObj.getStringWidth(clock);
+		int height = mc.fontRendererObj.FONT_HEIGHT;
 		int xBase = getX(width, playtimeTracker.getConfig().alignModeMain, playtimeTracker.getConfig().xOffsetMain);
 		int yBase = getY(height, playtimeTracker.getConfig().alignModeMain, playtimeTracker.getConfig().yOffsetMain);
-		mc.fontRenderer.drawStringWithShadow(clock, xBase, yBase, 0xffffff);
+		mc.fontRendererObj.drawStringWithShadow(clock, xBase, yBase, 0xffffff);
 		testMouse(mc, xBase, yBase, width, height);
 	}
 

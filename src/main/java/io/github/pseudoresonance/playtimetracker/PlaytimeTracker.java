@@ -14,7 +14,7 @@ import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientDisconnection
 
 import org.apache.logging.log4j.Logger;
 
-@Mod(modid = PlaytimeTracker.MODID, name = PlaytimeTracker.NAME, version = PlaytimeTracker.VERSION, clientSideOnly = true, acceptedMinecraftVersions = "[1.12,1.12.2]", canBeDeactivated = false)
+@Mod(modid = PlaytimeTracker.MODID, name = PlaytimeTracker.NAME, version = PlaytimeTracker.VERSION, clientSideOnly = true, acceptedMinecraftVersions = "[1.8,1.8.9]", canBeDeactivated = false, guiFactory = "io.github.pseudoresonance.playtimetracker.ConfigGuiFactory")
 public class PlaytimeTracker {
 	public static final String MODID = "playtimetracker";
 	public static final String NAME = "PlaytimeTracker";
@@ -31,7 +31,8 @@ public class PlaytimeTracker {
 	@EventHandler
 	public void preInit(FMLPreInitializationEvent event) {
 		logger = event.getModLog();
-		config = new ConfigHandler(this);
+		ConfigGui.setup(this);
+		config = new ConfigHandler(this, event.getSuggestedConfigurationFile());
 		datastore = new Datastore(this);
 		clockHud = new ClockHud(this);
 	}
@@ -39,6 +40,7 @@ public class PlaytimeTracker {
 	@EventHandler
 	public void init(FMLInitializationEvent event) {
 		MinecraftForge.EVENT_BUS.register(this);
+		MinecraftForge.EVENT_BUS.register(config);
 		MinecraftForge.EVENT_BUS.register(clockHud);
 		if (config.multiInstance)
 			datastore.startClock();
@@ -51,9 +53,9 @@ public class PlaytimeTracker {
 
 	@SubscribeEvent
 	public void connected(ClientConnectedToServerEvent event) {
-		currentServerIp = "mp." + event.getManager().getRemoteAddress().toString().toLowerCase().split("/")[0].replace('.', ',');
-		if (event.isLocal())
-			currentServerIp = "sp." + Minecraft.getMinecraft().getIntegratedServer().worlds[0].getSaveHandler().getWorldDirectory().getName().replaceAll("\\.", "%2E");
+		currentServerIp = "mp." + event.manager.getRemoteAddress().toString().toLowerCase().split("/")[0].replace('.', ',');
+		if (event.isLocal)
+			currentServerIp = "sp." + Minecraft.getMinecraft().getIntegratedServer().worldServers[0].getSaveHandler().getWorldDirectory().getName().replaceAll("\\.", "%2E");
 		datastore.logOn(currentServerIp);
 	}
 

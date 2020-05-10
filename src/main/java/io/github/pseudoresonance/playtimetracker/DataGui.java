@@ -62,7 +62,8 @@ public class DataGui extends GuiScreen {
 	public void initGui() {
 		multiplayer = I18n.format("menu.multiplayer");
 		singleplayer = I18n.format("menu.singleplayer");
-		this.toggleButton = this.addButton(new GuiButton(1, this.width / 2 - 152, this.height - 30, 150, 20, displaySession ? I18n.format("playtimetracker.menu.current") : I18n.format("playtimetracker.menu.all")));
+		this.toggleButton = new GuiButton(1, this.width / 2 - 152, this.height - 30, 150, 20, displaySession ? I18n.format("playtimetracker.menu.current") : I18n.format("playtimetracker.menu.all"));
+		this.buttonList.add(this.toggleButton);
 		this.buttonList.add(new GuiButton(2, this.width / 2 + 2, this.height - 30, 150, 20, I18n.format("gui.done")));
 		this.data.clear();
 		this.keys.clear();
@@ -137,7 +138,7 @@ public class DataGui extends GuiScreen {
 			this.sessionList.drawScreen(mouseX, mouseY, partialTicks);
 		else
 			this.list.drawScreen(mouseX, mouseY, partialTicks);
-		this.drawCenteredString(this.fontRenderer, I18n.format("playtimetracker.playtime.total" + (displaySession ? ".session" : ""), displaySession ? sessionTotal : total), this.width / 2, 8, -1);
+		this.drawCenteredString(this.fontRendererObj, I18n.format("playtimetracker.playtime.total" + (displaySession ? ".session" : ""), displaySession ? sessionTotal : total), this.width / 2, 8, -1);
 		super.drawScreen(mouseX, mouseY, partialTicks);
 	}
 
@@ -152,7 +153,7 @@ public class DataGui extends GuiScreen {
 		private long maxVal;
 
 		public List(HashMap<String, Long> data, ArrayList<String> keys, ArrayList<String> values, long maxVal) {
-			super(DataGui.this.mc, DataGui.this.width, DataGui.this.height, 8 + DataGui.this.mc.fontRenderer.FONT_HEIGHT + 8, DataGui.this.height - 40, DataGui.this.fontRenderer.FONT_HEIGHT + padding * 2);
+			super(DataGui.this.mc, DataGui.this.width, DataGui.this.height, 8 + DataGui.this.mc.fontRendererObj.FONT_HEIGHT + 8, DataGui.this.height - 40, DataGui.this.fontRendererObj.FONT_HEIGHT + padding * 2);
 			this.data = data;
 			this.keys = keys;
 			this.values = values;
@@ -180,7 +181,7 @@ public class DataGui extends GuiScreen {
 		protected void drawBackground() {
 		}
 
-		protected void drawSlot(int slotIndex, int xPos, int yPos, int heightIn, int mouseXIn, int mouseYIn, float partialTicks) {
+		protected void drawSlot(int slotIndex, int xPos, int yPos, int heightIn, int mouseXIn, int mouseYIn) {
 			if (slotIndex >= keys.size())
 				return;
 			String server = this.keys.get(slotIndex);
@@ -189,7 +190,7 @@ public class DataGui extends GuiScreen {
 				text = server.substring(3, server.length()).replace(',', '.') + " (" + multiplayer + ")";
 			else if (server.startsWith("sp."))
 				text = server.substring(3, server.length()).replaceAll("%2E", ".") + " (" + singleplayer + ")";
-			DataGui.this.fontRenderer.drawString(text, 10 + padding, yPos + padding, server.equals(playtimeTracker.getDatastore().getCurrentServerName()) ? playtimeTracker.getConfig().currentColor : -1);
+			DataGui.this.fontRendererObj.drawString(text, 10 + padding, yPos + padding, server.equals(playtimeTracker.getDatastore().getCurrentServerName()) ? playtimeTracker.getConfig().currentColor : -1);
 			int maxWidth = (DataGui.this.width - 15) - 230;
 			long time = this.data.get(server);
 			double percentMax = (double) time / this.maxVal;
@@ -202,7 +203,7 @@ public class DataGui extends GuiScreen {
 			Minecraft.getMinecraft().currentScreen.drawRect(230, yPos + this.slotHeight - 1 - padding, DataGui.this.width - 15, yPos + this.slotHeight - padding, playtimeTracker.getConfig().borderColor); // Bottom
 			Minecraft.getMinecraft().currentScreen.drawRect(230, yPos, 231, yPos + this.slotHeight - padding, playtimeTracker.getConfig().borderColor); // Left
 			Minecraft.getMinecraft().currentScreen.drawRect(DataGui.this.width - 16, yPos, DataGui.this.width - 15, yPos + this.slotHeight - padding, playtimeTracker.getConfig().borderColor); // Right
-			DataGui.this.fontRenderer.drawString(this.values.get(slotIndex), 230 + padding, yPos + padding, -1);
+			DataGui.this.fontRendererObj.drawString(this.values.get(slotIndex), 230 + padding, yPos + padding, -1);
 		}
 
 		protected int getScrollBarX() {
