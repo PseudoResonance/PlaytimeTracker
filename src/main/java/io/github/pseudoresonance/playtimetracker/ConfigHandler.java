@@ -111,7 +111,7 @@ public class ConfigHandler {
 			multiInstance = builder
 					.comment("Whether multiple instances are using the database file")
 					.translation(PlaytimeTracker.MODID + ".config." + "multiInstance")
-					.define("multiInstance", true);
+					.define("multiInstance", false);
 			builder.pop();
 			builder.push("HUD Settings");
 			alignMode = builder
