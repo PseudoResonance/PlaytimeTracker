@@ -14,7 +14,7 @@ public class ConfigHandler {
 
 	private static PlaytimeTracker playtimeTracker;
 
-	private Configuration config;
+	private static Configuration config;
 
 	ConfigHandler(PlaytimeTracker playtimeTracker, File file) {
 		ConfigHandler.playtimeTracker = playtimeTracker;
@@ -80,7 +80,7 @@ public class ConfigHandler {
 		}
 	}
 
-	protected void setDatabase(String location) {
+	protected static void setDatabase(String location) {
 		database = location;
 		config.get(Configuration.CATEGORY_GENERAL, "database", database).set(location);
 		config.save();

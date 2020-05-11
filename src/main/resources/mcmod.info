@@ -2,14 +2,14 @@
 {
   "modid": "playtimetracker",
   "name": "PlaytimeTracker",
-  "description": "Tracks game playtime.",
+  "description": "Tracks and displays game playtime.",
   "version": "${version}",
   "mcversion": "${mcversion}",
   "url": "https://github.com/PseudoResonance/PlaytimeTracker",
   "updateUrl": "",
   "authorList": ["PseudoResonance"],
   "credits": "PseudoResonance",
-  "logoFile": "",
+  "logoFile": "icon.png",
   "screenshots": [],
   "dependencies": []
 }
