@@ -19,7 +19,7 @@ public class PlaytimeTracker {
 	
 	public static final String MODID = "playtimetracker";
 	public static final String NAME = "Playtime Tracker";
-	public static final String VERSION = "1.1";
+	public static final String VERSION = "1.2";
 	
 	private static final Logger logger = LogManager.getLogger();
 
@@ -50,9 +50,9 @@ public class PlaytimeTracker {
 
 	@SubscribeEvent
 	public void connected(ClientPlayerNetworkEvent.LoggedInEvent event) {
-		currentServerIp = "mp." + event.getNetworkManager().getRemoteAddress().toString().toLowerCase().split("/")[0].replace('.', ',');
+		currentServerIp = "mp." + event.getNetworkManager().getRemoteAddress().toString().toLowerCase().split("/")[0].trim().replaceAll("^\\.+", "").replaceAll("\\.+$", "");
 		if (Minecraft.getInstance().isSingleplayer())
-			currentServerIp = "sp." + Minecraft.getInstance().getIntegratedServer().getWorlds().iterator().next().getSaveHandler().getWorldDirectory().getName().replaceAll("\\.", "%2E");
+			currentServerIp = "sp." + Minecraft.getInstance().getIntegratedServer().getWorlds().iterator().next().getSaveHandler().getWorldDirectory().getName().trim();
 		datastore.logOn(currentServerIp);
 	}
 

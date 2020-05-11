@@ -13,7 +13,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = "1.1"
+version = "1.2"
 group = "io.github.pseudoresonance" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "playtimetracker_1.15"
 
@@ -85,11 +85,6 @@ minecraft {
     }
 }
 
-configurations {
-    shade
-    compile.extendsFrom shade
-}
-
 repositories {
     maven { url 'https://jitpack.io' }
     mavenCentral()
@@ -118,13 +113,6 @@ dependencies {
     // For more info...
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
-	
-    shade ("com.github.Carleslc:Simple-YAML:1.4.1") {
-        exclude module: 'launchwrapper'
-        exclude module: 'guava'
-        exclude module: 'gson'
-        exclude module: 'commons-io'
-	}
 }
 
 // Example for how to get properties into the manifest for reading by the runtime..
@@ -139,11 +127,6 @@ jar {
             "Implementation-Vendor" :"io.github.pseudoresonance",
             "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
-    }
-    configurations.shade.each { dep ->
-        from(project.zipTree(dep)){
-            exclude 'META-INF', 'META-INF/**'
-        }
     }
 }
 
