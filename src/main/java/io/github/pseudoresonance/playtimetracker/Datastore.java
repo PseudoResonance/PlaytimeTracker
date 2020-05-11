@@ -1,17 +1,14 @@
 package io.github.pseudoresonance.playtimetracker;
 
-import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Type;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
-import java.nio.charset.Charset;
-import java.util.HashMap;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -19,22 +16,20 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.simpleyaml.configuration.ConfigurationSection;
-import org.simpleyaml.configuration.file.YamlFile;
-import org.simpleyaml.exceptions.InvalidConfigurationException;
-
 import com.google.common.base.Charsets;
-
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.common.config.Property;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 public class Datastore {
 
-	private final static String fileName = "playtime.yml";
+	private final static String fileName = "playtime.json";
 
 	private PlaytimeTracker playtimeTracker;
-	private ConfigFile dataFile;
+	private File dataFile;
 	private File dataFolder;
+	private Gson gson = new Gson();
+	private Type mapType = new TypeToken<ConcurrentHashMap<String, Long>>() {
+	}.getType();
 
 	private ConcurrentHashMap<String, Long> data = new ConcurrentHashMap<String, Long>();
 	private volatile long totalTime = 0;
@@ -44,7 +39,9 @@ public class Datastore {
 
 	private volatile boolean loggedOn = false;
 	private String serverName = "";
+	private volatile long logOnTime = 0;
 	private volatile long lastUpdateTime = 0;
+	private volatile long lastChange = 0;
 
 	private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 	private volatile ScheduledFuture<?> scheduledTask = null;
@@ -52,23 +49,22 @@ public class Datastore {
 	Datastore(PlaytimeTracker playtimeTracker) {
 		this.playtimeTracker = playtimeTracker;
 		try {
-			dataFolder = new File(playtimeTracker.getConfig().database);
+			dataFolder = new File(ConfigHandler.database);
 			dataFolder.mkdirs();
 		} catch (SecurityException e) {
 			try {
-				playtimeTracker.getConfig().setDatabase("./playtime");
+				ConfigHandler.setDatabase("./playtime");
 				dataFolder = new File("./playtime");
 				dataFolder.mkdirs();
 			} catch (SecurityException ex) {
 				playtimeTracker.getLogger().error("Unable to save data to " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
 			}
 		}
-		dataFile = new ConfigFile(dataFolder, fileName);
+		dataFile = new File(dataFolder, fileName);
 		FileLock lock = null;
-		try (FileChannel channel = new RandomAccessFile(dataFile.getConfigFile(), "rw").getChannel();) {
+		try (FileChannel channel = new RandomAccessFile(dataFile, "rw").getChannel()) {
 			lock = channel.lock();
-			dataFile.reload(new InputStreamReader(Channels.newInputStream(channel), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
-			readConfig(false, null);
+			readConfig(true, channel);
 		} catch (Exception e) {
 			playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
 			e.printStackTrace();
@@ -86,14 +82,12 @@ public class Datastore {
 			File newFolder = new File(location);
 			newFolder.mkdirs();
 			dataFolder = newFolder;
-			dataFile.save();
-			dataFile = new ConfigFile(dataFolder, fileName);
+			dataFile = new File(dataFolder, fileName);
 			scheduler.schedule(() -> {
 				FileLock lock = null;
-				try (FileChannel channel = new RandomAccessFile(dataFile.getConfigFile(), "rw").getChannel();) {
+				try (FileChannel channel = new RandomAccessFile(dataFile, "rw").getChannel()) {
 					lock = channel.lock();
-					dataFile.reload(new InputStreamReader(Channels.newInputStream(channel), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
-					readConfig(false, null);
+					readConfig(false, channel);
 				} catch (Exception e) {
 					playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
 					e.printStackTrace();
@@ -110,40 +104,18 @@ public class Datastore {
 		}
 	}
 
-	private void readConfig(boolean overwrite, InputStreamReader in) {
+	private void readConfig(boolean overwrite, FileChannel channel) {
 		long newTotalTime = 0;
-		if (overwrite) {
-			dataFile.reload(in);
-		} else
+		if (!overwrite)
 			newTotalTime = totalTime;
-		ConfigurationSection section = dataFile.getConfig().getConfigurationSection("mp");
-		if (section != null) {
-			for (String key : section.getKeys(false)) {
-				long val = section.getLong(key);
-				key = "mp." + key;
-				if (data.containsKey(key) && !overwrite) {
-					long add = data.get(key) + val;
-					data.put(key, add);
-					newTotalTime += add;
-				} else {
-					data.put(key, val);
-					newTotalTime += val;
-				}
-			}
-		}
-		section = dataFile.getConfig().getConfigurationSection("sp");
-		if (section != null) {
-			for (String key : section.getKeys(false)) {
-				long val = section.getLong(key);
-				key = "sp." + key;
-				if (data.containsKey(key) && !overwrite) {
-					long add = data.get(key) + val;
-					data.put(key, add);
-					newTotalTime += add;
-				} else {
-					data.put(key, val);
-					newTotalTime += val;
-				}
+		ConcurrentHashMap<String, Long> newData = gson.fromJson(new InputStreamReader(Channels.newInputStream(channel), Charsets.UTF_8), mapType);
+		if (newData != null) {
+			for (String key : newData.keySet()) {
+				long val = newData.get(key);
+				newTotalTime += val;
+				if (!overwrite && data.containsKey(key))
+					val += data.get(key);
+				data.put(key, val);
 			}
 		}
 		totalTime = newTotalTime;
@@ -151,13 +123,16 @@ public class Datastore {
 
 	private void updateData() {
 		FileLock lock = null;
-		try (RandomAccessFile raf = new RandomAccessFile(dataFile.getConfigFile(), "rw")) {
+		try (RandomAccessFile raf = new RandomAccessFile(dataFile, "rw")) {
 			lock = raf.getChannel().lock();
-			if (playtimeTracker.getConfig().multiInstance)
-				readConfig(true, new InputStreamReader(Channels.newInputStream(raf.getChannel()), dataFile.getConfig().UTF8_OVERRIDE && !dataFile.getConfig().UTF_BIG ? Charsets.UTF_8 : Charset.defaultCharset()));
+			if (ConfigHandler.multiInstance) {
+				readConfig(true, raf.getChannel());
+			}
 			if (loggedOn) {
 				long now = System.currentTimeMillis();
-				long change = now - lastUpdateTime;
+				long newChange = now - logOnTime;
+				long change = newChange - lastChange;
+				lastChange = newChange;
 				lastUpdateTime = now;
 				long val = 0;
 				if (data.containsKey(serverName))
@@ -171,8 +146,13 @@ public class Datastore {
 				sessionTotalTime += change;
 				data.put(serverName, val);
 				sessionData.put(serverName, sessionVal);
-				dataFile.set(serverName, val);
-				dataFile.save(Channels.newOutputStream(raf.getChannel()));
+				String json = gson.toJson(data, mapType);
+				raf.setLength(0);
+				OutputStreamWriter osw = new OutputStreamWriter(Channels.newOutputStream(raf.getChannel()), Charsets.UTF_8);
+				osw.write(json);
+				osw.close();
+				raf.getChannel().close();
+				raf.close();
 			}
 		} catch (Exception e) {
 			playtimeTracker.getLogger().error("Unable to read from " + dataFolder.getAbsolutePath() + "! Please check file permissions!");
@@ -189,7 +169,9 @@ public class Datastore {
 	public void logOn(String serverName) {
 		loggedOn = true;
 		this.serverName = serverName;
-		lastUpdateTime = System.currentTimeMillis();
+		logOnTime = System.currentTimeMillis();
+		lastUpdateTime = logOnTime;
+		lastChange = 0;
 		startClock();
 	}
 
@@ -198,23 +180,22 @@ public class Datastore {
 		loggedOn = false;
 		stopClock();
 		lastUpdateTime = 0;
+		logOnTime = 0;
+		lastChange = 0;
 		serverName = "";
 	}
 
 	public void startClock() {
-		if (scheduledTask == null || scheduledTask.isCancelled())
+		if (scheduledTask == null || scheduledTask.isCancelled()) {
 			scheduledTask = scheduler.scheduleAtFixedRate(() -> {
 				updateData();
-			}, playtimeTracker.getConfig().saveInterval, playtimeTracker.getConfig().saveInterval, TimeUnit.SECONDS);
+			}, ConfigHandler.saveInterval, ConfigHandler.saveInterval, TimeUnit.SECONDS);
+		}
 	}
 
 	public void stopClock() {
-		if (scheduledTask != null && !scheduledTask.isCancelled() && !playtimeTracker.getConfig().multiInstance && !loggedOn)
+		if (scheduledTask != null && !scheduledTask.isCancelled() && !ConfigHandler.multiInstance && !loggedOn)
 			scheduledTask.cancel(false);
-	}
-
-	public long clockUpdateMs() {
-		return lastUpdateTime % 1000;
 	}
 
 	public long getCurrentPlaytime() {

@@ -18,7 +18,7 @@ import org.apache.logging.log4j.Logger;
 public class PlaytimeTracker {
 	public static final String MODID = "playtimetracker";
 	public static final String NAME = "PlaytimeTracker";
-	public static final String VERSION = "1.1";
+	public static final String VERSION = "1.2";
 
 	private static Logger logger;
 
@@ -51,9 +51,9 @@ public class PlaytimeTracker {
 
 	@SubscribeEvent
 	public void connected(ClientConnectedToServerEvent event) {
-		currentServerIp = "mp." + event.getManager().getRemoteAddress().toString().toLowerCase().split("/")[0].replace('.', ',');
+		currentServerIp = "mp." + event.getManager().getRemoteAddress().toString().toLowerCase().split("/")[0].trim().replaceAll("^\\.+", "").replaceAll("\\.+$", "");
 		if (event.isLocal())
-			currentServerIp = "sp." + Minecraft.getMinecraft().getIntegratedServer().worlds[0].getSaveHandler().getWorldDirectory().getName().replaceAll("\\.", "%2E");
+			currentServerIp = "sp." + Minecraft.getMinecraft().getIntegratedServer().worlds[0].getSaveHandler().getWorldDirectory().getName().trim();
 		datastore.logOn(currentServerIp);
 	}
 
