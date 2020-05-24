@@ -1,0 +1,35 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("commons-io:commons-io:2.6")
+    }
+}
+
+allprojects {
+    repositories {
+        jcenter() 
+    }
+	apply plugin: 'java'
+	apply plugin: 'eclipse'
+	
+	group = rootProject.maven_group
+	version = rootProject.mod_version
+	archivesBaseName = rootProject.archives_base_name
+	
+	sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+subprojects.each { subproject ->
+	evaluationDependsOn(subproject.path)
+}
+task mmJar(type: Jar, dependsOn: subprojects.remapJar) {
+	println('Generating fat jar')
+	subprojects.each { subproject ->
+		from subproject.configurations.archives.artifacts.files.collect {
+			zipTree(it)
+		}
+	}
+}
+build.finalizedBy mmJar

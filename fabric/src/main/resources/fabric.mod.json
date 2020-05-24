@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "playtimetracker",
+  "version": "${version}",
+
+  "name": "Playtime Tracker",
+  "description": "Tracks and displays game playtime.",
+  "authors": [
+    "PseudoResonance"
+  ],
+  "contact": {
+    "homepage": "https://github.com/PseudoResonance/PlaytimeTracker"
+  },
+
+  "license": "CC0-1.0",
+  "icon": "icon.png",
+
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "io.github.pseudoresonance.playtimetracker.fabric.PlaytimeTracker"
+    ],
+    "modmenu": [
+      "io.github.pseudoresonance.playtimetracker.fabric.ConfigGui"
+    ]
+  },
+  "mixins": [
+    "playtimetracker.mixins.json"
+  ],
+
+  "depends": {
+    "fabricloader": ">=0.7.4",
+    "fabric": "*",
+    "cloth": "*",
+    "minecraft": "1.15.x"
+  },
+  "suggests": {
+    "flamingo": "*"
+  }
+}
